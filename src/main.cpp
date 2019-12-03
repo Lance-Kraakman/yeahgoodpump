@@ -1,33 +1,14 @@
 #include <Arduino.h>
-#include <HTTPClient.h>
 #include "WiFi.h"
-#include "time.h"
+#include "HTTPClient.h"
+#include "ntpTimeClass.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 const char* ssid       = "SPARK-9EKLRC";
 const char* password   = "FVBLEW5LVT";
 
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 3600;
-const int   daylightOffset_sec = 3600;
-
-void printLocalTime()
-{
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return;
-  }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-}
-
-int getSeconds() {
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return -1;
-  }
-  return timeinfo.tm_sec;
-}
+ntpTimeClass ntpTimer;
 
 void setup()
 {
@@ -46,13 +27,11 @@ void setup()
   Serial.println(" CONNECTED");
   
   //init and get the time
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  printLocalTime();
+  ntpTimer = ntpTimeClass();
   
-
-  //disconnect WiFi as it's no longer needed
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
+  //disconnect WiFi as it's no longer needed (do this on exit)
+  //WiFi.disconnect(true);
+  //WiFi.mode(WIFI_OFF);
 }
 
 
@@ -77,23 +56,22 @@ void loop()
         Serial.println(httpCode);
         Serial.println(payload);
       }
- 
+
     else {
       Serial.println("Error on HTTP request");
     }
  
     http.end(); //Free the resources
   }
-  if ((getSeconds() == 20)|(getSeconds() == 40)) {
+  
+  while(ntpTimer.getSeconds() < 60) { 
+    if ((ntpTimer.getSeconds() == 20)|(ntpTimer.getSeconds() == 40)) {
     Serial.println("We made it baby");
     digitalWrite(GPIO_NUM_16, HIGH);
     delay(5000);
     digitalWrite(GPIO_NUM_16, LOW);
         
   } 
-  Serial.println(getSeconds());  
-
-  
-
-
+  Serial.println(ntpTimer.getSeconds());  
+  }
 }
