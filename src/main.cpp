@@ -42,8 +42,9 @@ void loop()
 
     if (WiFi.status()==WL_CONNECTED) {
       HTTPClient http;
-    //in the future this will be our own url -> for dev localhost:8080 etc (make springboot application using spring inititilizer)
-    //which does the ui and back end etc and then we can get data from that. 
+    //@Caleb the http://json ... website is a test website which you can call the url and it will give you data in JSON format (whats printed on screen)
+    //this is just testing sending requests and getting data from http requests. 
+    //in the future there will be comms between our own website w/ http requests
     //in the future this will be a requesest sent our website asking for data. and even more in the future
     //the website will send the ESP data and requests which will be returned to the website!
       http.begin("http://jsonplaceholder.typicode.com/comments?id=10"); //Specify the URL
