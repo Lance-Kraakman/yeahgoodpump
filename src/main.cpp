@@ -1,77 +1,98 @@
 #include <Arduino.h>
+#include "wifiConfigurations.h"
 #include "WiFi.h"
 #include "HTTPClient.h"
-#include "ntpTimeClass.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
-const char* ssid       = "SPARK-9EKLRC";
-const char* password   = "FVBLEW5LVT";
+#define NTP_SERVER "pool.ntp.org"
+#define GMTOFFSET_SEC 3600
+#define DAYLIGHTOFFSET_SEC 3600
 
-ntpTimeClass ntpTimer;
+int getSeconds();
+void printLocalTime();
+
+uint32_t previousMillis = 0;
 
 void setup()
 {
   //Set maximum frequency -Optimize peformance (Power is not an issue)
-  setCpuFrequencyMhz(240); 
+  setCpuFrequencyMhz(160); 
   Serial.begin(9600);
   pinMode(GPIO_NUM_16, OUTPUT);
+  
 
   //connect to WiFi
-  Serial.printf("Connecting to %s ", ssid);
-  WiFi.begin(ssid, password);
+  Serial.printf("Connecting to %s ", WILMAS_SSID);
+  WiFi.begin(WILMAS_SSID, WILMAS_PASS);
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
       Serial.print(".");
   }
+  configTime(GMTOFFSET_SEC, DAYLIGHTOFFSET_SEC, NTP_SERVER);
   Serial.println(" CONNECTED");
-  
-  //init and get the time
-  ntpTimer = ntpTimeClass();
-  
-  //disconnect WiFi as it's no longer needed (do this on exit)
-  //WiFi.disconnect(true);
-  //WiFi.mode(WIFI_OFF);
+   delay(1000);
 }
-
-
-//this wont work we need to schedule the tasks. with a task scheduler
-//most likely freeRTOS. 
 
 void loop()
 {
- 
-  delay(1000);
 
-  if (WiFi.status()==WL_CONNECTED) {
-    HTTPClient http;
-  //in the future this will be our own url -> for dev localhost:8080 etc (make springboot application using spring inititilizer)
-  //which does the ui and back end etc and then we can get data from that. 
-    http.begin("http://jsonplaceholder.typicode.com/comments?id=10"); //Specify the URL
-    int httpCode = http.GET();                                        //Make the request
- 
-    if (httpCode > 0) { //Check for the returning code
- 
-        String payload = http.getString();
-        Serial.println(httpCode);
-        Serial.println(payload);
+  //The below three lines and if statement is basically a delay without actually halting the cpu. look at "Blink without delay Arduino"
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= 10000) {  
+    previousMillis = currentMillis;
+
+    if (WiFi.status()==WL_CONNECTED) {
+      HTTPClient http;
+    //in the future this will be our own url -> for dev localhost:8080 etc (make springboot application using spring inititilizer)
+    //which does the ui and back end etc and then we can get data from that. 
+    //in the future this will be a requesest sent our website asking for data. and even more in the future
+    //the website will send the ESP data and requests which will be returned to the website!
+      http.begin("http://jsonplaceholder.typicode.com/comments?id=10"); //Specify the URL
+      int httpCode = http.GET();                                        //Make the request
+  
+      if (httpCode > 0) { //Check for the returning code
+  
+          String payload = http.getString();
+          Serial.println(httpCode);
+          Serial.println(payload); //payload is our data in JSON format we need to extract it somehow
+        }
+
+      else {
+        Serial.println("Error on HTTP request");
       }
-
-    else {
-      Serial.println("Error on HTTP request");
+      http.end(); //Free the resources
     }
- 
-    http.end(); //Free the resources
   }
   
-  while(ntpTimer.getSeconds() < 60) { 
-    if ((ntpTimer.getSeconds() == 20)|(ntpTimer.getSeconds() == 40)) {
-    Serial.println("We made it baby");
-    digitalWrite(GPIO_NUM_16, HIGH);
-    delay(5000);
-    digitalWrite(GPIO_NUM_16, LOW);
-        
-  } 
-  Serial.println(ntpTimer.getSeconds());  
+    if ((getSeconds() == 20)|(getSeconds() == 40)) {
+      Serial.println("We made it baby");
+      digitalWrite(GPIO_NUM_16, HIGH);
+      delay(5000);
+      digitalWrite(GPIO_NUM_16, LOW);
+      Serial.println(getSeconds());
+    }
+
+}
+
+//Theese functinons get the time and print the time.     
+void printLocalTime()
+{
+  struct tm timeinfo;
+      
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return;
   }
+        
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
+int getSeconds() {
+  struct tm timeinfo;
+      
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return -1;
+  }
+        
+  return timeinfo.tm_sec;
 }
