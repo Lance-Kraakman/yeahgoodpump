@@ -1,1 +1,1 @@
-Espressif application to explain something to a friend #IGNORE
+Application to explain something to a friend #IGNORE
